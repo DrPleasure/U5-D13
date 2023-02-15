@@ -52,9 +52,9 @@ const Home = () => {
         setOnlineUsers(onlineUsersList)
       })
 
-      socket.on("newMessage", newMessage => {
+      socket.on("newMessage", (newMessage) => {
         console.log(newMessage)
-        setChatHistory([...chatHistory, newMessage.message])
+        setChatHistory((prevChatHistory) => [...prevChatHistory, newMessage.message])
       })
 
 
