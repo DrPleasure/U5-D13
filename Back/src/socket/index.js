@@ -33,4 +33,23 @@ export const newConnectionHandler = newClient => {
     // 4.2 Let's communicate the updated list all the remaining clients
     newClient.broadcast.emit("updateOnlineUsersList", onlineUsers)
   })
+
+// 5. Listen to an event called "typing", this event is received when an user starts/stops typing
+newClient.on("typing", ({ isTyping }) => {
+  console.log("TYPING:", newClient.id, isTyping)
+
+  // 5.1 Find the corresponding user in onlineUsers
+  const user = onlineUsers.find(user => user.socketId === newClient.id)
+  if (user) {
+    // 5.2 Update the isTyping property of the corresponding user
+    user.isTyping = isTyping
+
+    // 5.3 Broadcast the updated onlineUsers list to everyone except the current user
+    newClient.broadcast.emit("updateOnlineUsersList", onlineUsers)
+
+    // 5.4 Broadcast a message to inform other users of the typing status of this user
+    newClient.broadcast.emit("typingStatus", {userId: user.socketId, isTyping})
+  }
+})
+
 }

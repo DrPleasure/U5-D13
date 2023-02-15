@@ -9,6 +9,7 @@ import {
 } from "react-bootstrap"
 import { Message, User } from "../types"
 import { io } from 'socket.io-client'
+import "./home.css"
 
 // 1. When we jump into this page, the socket.io client needs to connect to the server
 // 2. If the connection happens successfully, the server will emit an event called "welcome"
@@ -31,6 +32,10 @@ const Home = () => {
   const [loggedIn, setLoggedIn] = useState(false)
   const [onlineUsers, setOnlineUsers] = useState<User[]>([])
   const [chatHistory, setChatHistory] = useState<Message[]>([])
+  const [isTyping, setIsTyping] = useState(false);
+  const [currentUser, setCurrentUser] = useState('');
+
+
 
   useEffect(() => {
     socket.on("welcome", welcomeMessage => {
@@ -46,28 +51,64 @@ const Home = () => {
         console.log("A new user connected/disconnected")
         setOnlineUsers(onlineUsersList)
       })
-    })
 
-    socket.on("newMessage", newMessage => {
-      console.log(newMessage)
-      setChatHistory([...chatHistory, newMessage.message])
-    })
-  })
+      socket.on("newMessage", newMessage => {
+        console.log(newMessage)
+        setChatHistory([...chatHistory, newMessage.message])
+      })
+
+
+      socket.on("typing", ({ id, isTyping }) => {
+        // Find the corresponding user in onlineUsers
+        const userIndex = onlineUsers.findIndex(user => user.socketId === id);
+        if (userIndex !== -1) {
+          // Update the isTyping property of the corresponding user
+          const updatedUsers = [...onlineUsers];
+          updatedUsers[userIndex].isTyping = isTyping;
+          setOnlineUsers(updatedUsers);
+        }
+      });
+    });
+  }, [chatHistory, loggedIn, onlineUsers]);
+    
 
   const submitUsername = () => {
     // here we will be emitting a "setUsername" event (the server is already listening for that)
     socket.emit("setUsername", { username })
+    setCurrentUser(username);
+
   }
 
   const sendMessage = () => {
     const newMessage: Message = {
       sender: username,
       text: message,
-      createdAt: new Date().toLocaleString("en-US")
+      createdAt: new Date().toLocaleString("en-US"),
+      isTyping: false // initialize isTyping property with false
+      
+
     }
     socket.emit("sendMessage", { message: newMessage })
-    setChatHistory([...chatHistory, newMessage])
-  }
+    setChatHistory([...chatHistory, newMessage]);
+    setIsTyping(false); // reset isTyping state to false after sending the message
+
+  };
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = event.target;
+    setMessage(value);
+  
+    // Emit a "typing" event to the server when the user starts or stops typing
+    if (value.length > 0 && !isTyping) {
+      socket.emit("typing", { id: socket.id, isTyping: true });
+      setIsTyping(true);
+    } else if (value.length === 0 && isTyping) {
+      socket.emit("typing", { id: socket.id, isTyping: false });
+      setIsTyping(false);
+    }
+    
+  };
+  
 
   return (
     <Container fluid>
@@ -84,18 +125,19 @@ const Home = () => {
             <FormControl
               placeholder="Set your username here"
               value={username}
-              onChange={e => setUsername(e.target.value)}
-              disabled={loggedIn}
+              onChange={e => setUsername(e.target.value)}              disabled={loggedIn}
             />
           </Form>
-          {/* )} */}
           {/* MIDDLE AREA: CHAT HISTORY */}
           <ListGroup>
-            {chatHistory.map((message, index) => (<ListGroup.Item key={index}>{
-              <strong>{message.sender}</strong>
-            } | {message.text} at {message.createdAt}</ListGroup.Item>))}
-          </ListGroup>
-          {/* BOTTOM AREA: NEW MESSAGE */}
+  {chatHistory.map((message, index) => (
+    <ListGroup.Item key={index} className={message.sender === currentUser ? 'own-message' : ''}>
+      {message.sender}: {message.text}
+    </ListGroup.Item>
+  ))}
+</ListGroup>
+
+          {/* BOTTOM AREA: MESSAGE INPUT FIELD */}
           <Form
             onSubmit={e => {
               e.preventDefault()
@@ -103,24 +145,35 @@ const Home = () => {
             }}
           >
             <FormControl
-              placeholder="Write your message here"
+              placeholder="Type your message here"
               value={message}
-              onChange={e => setMessage(e.target.value)}
+              onChange={handleChange}
               disabled={!loggedIn}
             />
+            {/* Display a message when a user is typing */}
+            {onlineUsers.map(user => {
+              if (user.isTyping) {
+                return <div key={user.socketId}>{user.username} is typing...</div>;
+              }
+              return null;
+            })}
           </Form>
         </Col>
         <Col md={3}>
-          {/* ONLINE USERS SECTION */}
-          <div className="mb-3">Connected users:</div>
-          {onlineUsers.length === 0 && <ListGroup.Item>Log in to check who is online!!</ListGroup.Item>}
+          {/* RIGHT COLUMN: ONLINE USERS LIST */}
+          <h3>Online Users ({onlineUsers.length})</h3>
           <ListGroup>
-            {onlineUsers.map(user => (<ListGroup.Item key={user.socketId}>{user.username}</ListGroup.Item>))}
+            {onlineUsers.map((user, index) => (
+              <ListGroup.Item key={index}>
+                {user.username} {user.isTyping && "(typing)"}
+              </ListGroup.Item>
+            ))}
           </ListGroup>
         </Col>
       </Row>
     </Container>
-  )
+  );
+  
 }
 
 export default Home
