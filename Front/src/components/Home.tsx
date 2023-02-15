@@ -34,6 +34,15 @@ const Home = () => {
   const [chatHistory, setChatHistory] = useState<Message[]>([])
   const [isTyping, setIsTyping] = useState(false);
   const [currentUser, setCurrentUser] = useState('');
+  
+  useEffect(() =>{if (isTyping) {
+    socket.emit("typing", { id: socket.id, isTyping: true });
+  } else  {
+    socket.emit("typing", { id: socket.id, isTyping: false });
+    
+  }},[isTyping])
+
+  
 
 
 
@@ -91,6 +100,7 @@ const Home = () => {
     socket.emit("sendMessage", { message: newMessage })
     setChatHistory([...chatHistory, newMessage]);
     setIsTyping(false); // reset isTyping state to false after sending the message
+    socket.emit("typing", { id: socket.id, isTyping: false });
     setMessage(``)
     
 
@@ -102,10 +112,8 @@ const Home = () => {
   
     // Emit a "typing" event to the server when the user starts or stops typing
     if (value.length > 0 && !isTyping) {
-      socket.emit("typing", { id: socket.id, isTyping: true });
       setIsTyping(true);
     } else if (value.length === 0 && isTyping) {
-      socket.emit("typing", { id: socket.id, isTyping: false });
       setIsTyping(false);
     }
     
