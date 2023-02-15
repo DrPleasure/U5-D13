@@ -54,7 +54,7 @@ const Home = () => {
 
       socket.on("newMessage", (newMessage) => {
         console.log(newMessage)
-        setChatHistory((prevChatHistory) => [...prevChatHistory, newMessage.message])
+        setChatHistory((prevChatHistory) => [...prevChatHistory, newMessage.message]);
       })
 
 
@@ -91,6 +91,8 @@ const Home = () => {
     socket.emit("sendMessage", { message: newMessage })
     setChatHistory([...chatHistory, newMessage]);
     setIsTyping(false); // reset isTyping state to false after sending the message
+    setMessage(``)
+    
 
   };
 
